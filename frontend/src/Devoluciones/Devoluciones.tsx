@@ -422,6 +422,7 @@ React.useEffect(() => {
                   <h3 className="text-lg font-bold text-slate-900 mb-6">
                     Registrar Devolución
                   </h3>
+                  
 
                   <div className="space-y-6">
                     <div>
@@ -605,8 +606,25 @@ React.useEffect(() => {
                       >
                         <RotateCcw size={22} />
                         <span>Registrar Devolución</span>
+                        
                       </button>
+
+                      
                     </div>
+
+                    <div className="pt-6">
+                      <button
+                        onClick={handleRegistrarDevolucion}
+                        className="w-full bg-[#5ba4c7] hover:bg-[#4a8ba9] text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-[#5ba4c7]/30 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                      >
+                        <RotateCcw size={22} />
+                        <span>Registrar como Donación</span>
+                        
+                      </button>
+
+                      
+                    </div>
+
                   </div>
                 </div>
               </div>
