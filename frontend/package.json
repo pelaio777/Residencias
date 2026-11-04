@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
+    "i18next": "^26.7.1",
     "lucide-react": "^0.577.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-i18next": "^17.1.12",
     "react-to-print": "^3.3.0",
     "recharts": "^3.8.1",
     "tailwindcss": "^4.2.1",

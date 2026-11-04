@@ -40,3 +40,63 @@
 .read-the-docs {
   color: #888;
 }
+
+/* --- Correcciones definitivas para Google Translate --- */
+
+/* Ocultar completamente la barra superior que añade Google al traducir */
+body > .skiptranslate,
+.goog-te-banner-frame,
+iframe.goog-te-banner-frame {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0px !important;
+  width: 0px !important;
+  position: absolute !important;
+  top: -9999px !important;
+}
+
+/* Forzar que el cuerpo de la página no baje de posición */
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+/* Ocultar el tooltip flotante o globos de traducción de Google */
+#goog-gt-tt, .goog-te-balloon-frame {
+  display: none !important;
+}
+
+/* Estilo para el contenedor del Sidebar */
+.custom-google-translate select {
+  background-color: transparent !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  outline: none !important;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  width: 100%;
+}
+
+/* Ajustar las opciones del menú desplegable para que se lean bien */
+.custom-google-translate option {
+  background-color: #5ba4c7 !important;
+  color: #ffffff !important;
+}
+
+.goog-te-gadget {
+  font-size: 0px !important;
+}
+
+.goog-te-gadget span {
+  display: none !important;
+}
+
+/* Evitar marcos extraños que genera el widget */
+.goog-te-combo {
+  margin: 0px !important;
+  padding: 4px !important;
+}

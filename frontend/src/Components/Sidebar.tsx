@@ -6,7 +6,8 @@ import {
   RotateCcw,
   Users,
   BarChart3,
-  LogOut
+  LogOut,
+  Languages
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -29,6 +30,38 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onLogout, onNavigate }) =
         setUserRol(user.rol || 'Administrador');
       } catch (error) {
         console.error('Error al parsear usuario:', error);
+      }
+    }
+
+    // Inicializar el script de Google Translate de forma dinámica
+    if (!document.getElementById('google-translate-script')) {
+      window.googleTranslateElementInit = () => {
+      if (window.google && window.google.translate) {
+          new window.google.translate.TranslateElement(
+            {
+              pageLanguage: 'es',
+              includedLanguages: 'en,es,fr',
+              // Usar el layout por defecto simplificado evita elementos visuales rotos
+              layout: window.google.translate.TranslateElement.InlineLayout.HORIZONTAL,
+              autoDisplay: false,
+            },
+            'google_translate_element'
+          );
+        }
+      };
+      const script = document.createElement('script');
+      script.id = 'google-translate-script';
+      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      script.async = true;
+      document.body.appendChild(script);
+    } else if (window.google && window.google.translate) {
+      // Por si el script ya cargó previamente
+      try {
+        if (!document.getElementById('google_translate_element')?.hasChildNodes()) {
+          window.googleTranslateElementInit?.();
+        }
+      } catch (e) {
+        console.error(e);
       }
     }
   }, []);
@@ -83,8 +116,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onLogout, onNavigate }) =
               className="w-full h-auto object-contain drop-shadow-sm"
             />
           </div>
-
-
         </div>
 
         {/* Menú */}
@@ -100,8 +131,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onLogout, onNavigate }) =
           ))}
         </nav>
 
-        {/* Usuario */}
-        <div className="pt-6 border-t border-white/20 flex flex-col gap-4">
+        {/* Sección inferior: Usuario, Traductor y Logout */}
+        <div className="pt-6 border-t border-white/20 flex flex-col gap-3">
+          {/* Tarjeta de usuario */}
           <div className="flex items-center gap-3 px-4 py-3 rounded-[24px] bg-white/15 border border-white/15 backdrop-blur-md shadow-lg shadow-slate-900/5">
             <div className="w-11 h-11 rounded-2xl bg-white/25 flex items-center justify-center text-white font-black text-sm shadow-sm uppercase border border-white/20">
               {userName ? userName.charAt(0) : 'U'}
@@ -117,6 +149,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onLogout, onNavigate }) =
             </div>
           </div>
 
+          {/* Widget de Google Translate integrado con diseño estético */}
+          <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/15 border border-white/15 backdrop-blur-md shadow-lg shadow-slate-900/5 text-xs font-bold text-white">
+            <div className="w-7 h-7 rounded-xl bg-white/25 flex items-center justify-center text-white shrink-0">
+              <Languages size={15} />
+            </div>
+            <div className="overflow-hidden w-full custom-google-translate">
+              <div id="google_translate_element"></div>
+            </div>
+          </div>
+
+          {/* Botón de cerrar sesión */}
           <button
             onClick={onLogout}
             className="flex items-center gap-3 text-white/50 hover:text-white font-black text-sm px-4 py-3 rounded-2xl transition-all w-full text-left hover:bg-white/15 active:scale-[0.98]"
