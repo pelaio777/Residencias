@@ -6,6 +6,8 @@ const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
+const { GoogleGenAI } = require('@google/genai');
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const app = express();
 const PORT = 3000;
@@ -28,7 +30,7 @@ const verificarAccesoOrtopedia = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
+
         // Verificar si el usuario tiene el acceso requerido ("ortopedia")
         const roles = decoded.roles || decoded.rol;
         let hasAccess = false;
@@ -274,7 +276,7 @@ app.post('/inventario', async (req, res) => {
             "SELECT codigo_articulo FROM inventario WHERE codigo_articulo LIKE $1",
             [`${abbr}-%`]
         );
-        
+
         let maxNum = 0;
         for (const row of existingCodesRes.rows) {
             const parts = row.codigo_articulo.split('-');
@@ -313,7 +315,7 @@ app.post('/inventario', async (req, res) => {
              RETURNING *`,
             [codigo_articulo, nombre, descripcion, categoria, cantidad_total, cantidad_disponible, estado_fisico || 'Bueno', id_imagen_previsualizacion]
         );
-        
+
         const articulo = resultado.rows[0];
         articulo.imagen_url = imagen_url;
 
@@ -337,7 +339,7 @@ app.put('/inventario/:id', async (req, res) => {
         if (artActualRes.rows.length === 0) {
             return res.status(404).json({ error: 'Artículo no encontrado' });
         }
-        
+
         const oldImageId = artActualRes.rows[0].id_imagen_previsualizacion;
         const currentCode = artActualRes.rows[0].codigo_articulo;
         let id_imagen_previsualizacion = oldImageId;
@@ -391,7 +393,7 @@ app.put('/inventario/:id', async (req, res) => {
         );
 
         const articuloActualizado = resultado.rows[0];
-        
+
         // 4. Si la imagen cambió y había una imagen previa, eliminarla de la galería
         if (req.body.hasOwnProperty('imagen_url')) {
             let oldImageUrl = null;
@@ -455,7 +457,7 @@ async function obtenerBeneficiarioCompleto(id) {
     `;
     const res = await db.query(queryText, [id]);
     if (res.rows.length === 0) return null;
-    
+
     const row = res.rows[0];
     return {
         id_beneficiario: row.id_beneficiario,
@@ -515,15 +517,15 @@ app.get('/beneficiarios', async (req, res) => {
 
 // AGREGAR NUEVO BENEFICIARIO (POST /beneficiarios)
 app.post('/beneficiarios', async (req, res) => {
-    const { 
-        nombre_completo, 
-        identificacion, 
-        telefono, 
-        correo, 
-        direccion, 
-        identificacion_archivo_nombre, 
-        identificacion_archivo_tipo, 
-        identificacion_archivo_url 
+    const {
+        nombre_completo,
+        identificacion,
+        telefono,
+        correo,
+        direccion,
+        identificacion_archivo_nombre,
+        identificacion_archivo_tipo,
+        identificacion_archivo_url
     } = req.body;
     try {
         // Validación de Identificación Única
@@ -565,15 +567,15 @@ app.post('/beneficiarios', async (req, res) => {
 // ACTUALIZAR BENEFICIARIO (PUT /beneficiarios/:id)
 app.put('/beneficiarios/:id', async (req, res) => {
     const { id } = req.params;
-    const { 
-        nombre_completo, 
-        identificacion, 
-        telefono, 
-        correo, 
-        direccion, 
-        identificacion_archivo_nombre, 
-        identificacion_archivo_tipo, 
-        identificacion_archivo_url 
+    const {
+        nombre_completo,
+        identificacion,
+        telefono,
+        correo,
+        direccion,
+        identificacion_archivo_nombre,
+        identificacion_archivo_tipo,
+        identificacion_archivo_url
     } = req.body;
     try {
         // Verificar si la nueva identificación ya pertenece a otro usuario
@@ -797,7 +799,7 @@ app.get('/devoluciones', async (req, res) => {
             JOIN beneficiarios b ON p.id_beneficiario = b.id_beneficiario
             ORDER BY d.fecha_devolucion DESC
         `;
-        
+
         const resultado = await db.query(query);
         res.json(resultado.rows);
     } catch (error) {
@@ -816,7 +818,7 @@ app.post('/devoluciones', async (req, res) => {
         // 1. Verificar que el préstamo exista y esté activo
         const prestamo = await cliente.query('SELECT * FROM prestamos WHERE id_prestamo = $1 AND estado_prestamo = $2', [id_prestamo, 'Activo']);
         if (prestamo.rows.length === 0) throw new Error('Préstamo no encontrado o ya fue devuelto');
-        
+
         const id_articulo = prestamo.rows[0].id_articulo;
 
         // 2. Cambiar estado del préstamo a Devuelto
@@ -831,7 +833,7 @@ app.post('/devoluciones', async (req, res) => {
 
         // 4. Devolver 1 unidad al inventario y actualizar su estado físico
         await cliente.query(
-            'UPDATE inventario SET cantidad_disponible = cantidad_disponible + 1, estado_fisico = $1 WHERE id_articulo = $2', 
+            'UPDATE inventario SET cantidad_disponible = cantidad_disponible + 1, estado_fisico = $1 WHERE id_articulo = $2',
             [estado_fisico_recibido, id_articulo]
         );
 
@@ -854,10 +856,10 @@ app.post('/devoluciones', async (req, res) => {
 app.get('/reportes/resumen', async (req, res) => {
     try {
         const { fechaInicio, fechaFin } = req.query;
-        
+
         // Total de aparatos (suma de todas las cantidades totales)
         const totalAparatosRes = await db.query('SELECT COALESCE(SUM(cantidad_total), 0) AS total FROM inventario');
-        
+
         // Total de préstamos activos
         let prestadosQuery = "SELECT COUNT(*) AS total FROM prestamos WHERE estado_prestamo = 'Activo'";
         const prestadosValues = [];
@@ -866,7 +868,7 @@ app.get('/reportes/resumen', async (req, res) => {
             prestadosValues.push(fechaInicio, fechaFin);
         }
         const prestadosRes = await db.query(prestadosQuery, prestadosValues);
-        
+
         // Devoluciones atrasadas (préstamos activos con fecha límite pasada)
         let atrasadasQuery = "SELECT COUNT(*) AS total FROM prestamos WHERE estado_prestamo = 'Activo' AND fecha_limite_devolucion < CURRENT_DATE";
         const atrasadasValues = [];
@@ -875,7 +877,7 @@ app.get('/reportes/resumen', async (req, res) => {
             atrasadasValues.push(fechaInicio, fechaFin);
         }
         const atrasadasRes = await db.query(atrasadasQuery, atrasadasValues);
-        
+
         // Aparatos en mantenimiento
         const mantenimientoRes = await db.query("SELECT COALESCE(SUM(cantidad_total), 0) AS total FROM inventario WHERE estado_fisico = 'Mantenimiento' OR estado_fisico = 'Reparación'");
 
@@ -979,18 +981,18 @@ app.get('/reportes/top-aparatos', async (req, res) => {
             JOIN inventario i ON p.id_articulo = i.id_articulo
         `;
         const values = [];
-        
+
         if (fechaInicio && fechaFin) {
             query += " WHERE p.fecha_prestamo >= $1 AND p.fecha_prestamo <= $2";
             values.push(fechaInicio, fechaFin);
         }
-        
+
         query += `
             GROUP BY i.id_articulo, i.nombre
             ORDER BY total_prestamos DESC
             LIMIT 5
         `;
-        
+
         const resultado = await db.query(query, values);
         // Convertimos a número para asegurar el tipo de dato correcto
         const datos = resultado.rows.map(row => ({
@@ -1027,7 +1029,7 @@ app.get('/reportes/prestamos-mes', async (req, res) => {
             GROUP BY TO_CHAR(fecha_prestamo, 'YYYY-MM')
             ORDER BY mes ASC
         `;
-        
+
         const resultado = await db.query(query, values);
         // Convertimos a número para asegurar el tipo de dato correcto
         const datos = resultado.rows.map(row => ({
@@ -1094,7 +1096,7 @@ app.get('/categorias', async (req, res) => {
 // AGREGAR NUEVA CATEGORÍA (POST /categorias)
 app.post('/categorias', async (req, res) => {
     const { categoria, abreviacion } = req.body;
-    
+
     // Validaciones
     if (!categoria || categoria.trim() === '') {
         return res.status(400).json({ error: 'El nombre de la categoría es requerido.' });
@@ -1141,10 +1143,10 @@ app.delete('/categorias/:id', async (req, res) => {
         // 2. Verificar si tiene artículos asociados en el inventario
         const inventarioRes = await db.query('SELECT COUNT(*) AS total FROM inventario WHERE categoria = $1', [nombreCategoria]);
         const totalAsociados = parseInt(inventarioRes.rows[0].total, 10);
-        
+
         if (totalAsociados > 0) {
-            return res.status(400).json({ 
-                error: `No se puede eliminar la categoría "${nombreCategoria}" porque tiene ${totalAsociados} artículo(s) asignado(s) en el inventario.` 
+            return res.status(400).json({
+                error: `No se puede eliminar la categoría "${nombreCategoria}" porque tiene ${totalAsociados} artículo(s) asignado(s) en el inventario.`
             });
         }
 
@@ -1154,6 +1156,31 @@ app.delete('/categorias/:id', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error al eliminar la categoría' });
+    }
+});
+
+app.post('/api/chat', async (req, res) => {
+    const { mensaje } = req.body;
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: mensaje,
+            config: {
+                systemInstruction: `Eres el asistente virtual inteligente de la aplicación web del Centro Comunitario "Palabras de Esperanza" (Módulo de Ortopedia). 
+                Ayudas a los operadores a usar el sistema. 
+                Contexto de la app:
+                - Permite gestionar Inventario de aparatos ortopédicos, generando códigos automáticos por categoría.
+                - Gestiona Préstamos a beneficiarios con control de stock disponible y fecha límite.
+                - Gestiona Devoluciones registrando el estado físico del aparato y restaurando el stock.
+                - Gestiona Beneficiarios y un apartado de Reportes/Morosidad.
+                Responde de manera amable, directa, concisa y en español.`
+            }
+        });
+
+        res.json({ respuesta: response.text });
+    } catch (error) {
+        console.error('Error en IA (Gemini):', error);
+        res.status(500).json({ error: 'Error al procesar la respuesta inteligente' });
     }
 });
 

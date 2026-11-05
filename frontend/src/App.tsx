@@ -6,6 +6,7 @@ import Devoluciones from './Devoluciones/Devoluciones';
 import Beneficiarios from './Beneficiarios/Beneficiarios';
 import Reportes from './Reportes/Reportes';
 import Usuarios from './Usuarios/Usuarios';
+import { ChatbotAsistente } from './chatbot/ChatbotAsistente'; // <-- Importación del Chatbot Inteligente
 
 // URL DE REDIRECCIÓN AL SSO EXTERNO
 const EXTERNAL_LOGIN_URL = 'URL_DEL_LOGIN_EXTERNO_AQUI';
@@ -198,7 +199,13 @@ function App() {
 
   return (
     <>
-      {isAuthenticated && renderView()}
+      {isAuthenticated && (
+        <>
+          {renderView()}
+          {/* Chatbot flotante inteligente integrado */}
+          <ChatbotAsistente />
+        </>
+      )}
     </>
   );
 }
