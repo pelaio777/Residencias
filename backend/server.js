@@ -1160,28 +1160,77 @@ app.delete('/categorias/:id', async (req, res) => {
 });
 
 app.post('/api/chat', async (req, res) => {
-    const { mensaje } = req.body;
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: mensaje,
-            config: {
-                systemInstruction: `Eres el asistente virtual inteligente de la aplicación web del Centro Comunitario "Palabras de Esperanza" (Módulo de Ortopedia). 
-                Ayudas a los operadores a usar el sistema. 
-                Contexto de la app:
-                - Permite gestionar Inventario de aparatos ortopédicos, generando códigos automáticos por categoría.
-                - Gestiona Préstamos a beneficiarios con control de stock disponible y fecha límite.
-                - Gestiona Devoluciones registrando el estado físico del aparato y restaurando el stock.
-                - Gestiona Beneficiarios y un apartado de Reportes/Morosidad.
-                Responde de manera amable, directa, concisa y en español.`
-            }
-        });
+    const { mensaje, historial } = req.body;
 
-        res.json({ respuesta: response.text });
-    } catch (error) {
-        console.error('Error en IA (Gemini):', error);
-        res.status(500).json({ error: 'Error al procesar la respuesta inteligente' });
+    if (!mensaje || typeof mensaje !== 'string' || !mensaje.trim()) {
+        return res.status(400).json({ error: 'El mensaje no puede estar vacío' });
     }
+
+    const systemInstruction = `Eres el asistente virtual inteligente de la aplicación web del Centro Comunitario "Palabras de Esperanza" (Módulo de Ortopedia). 
+Ayudas a los operadores a usar el sistema. 
+Contexto de la app:
+- Permite gestionar Inventario de aparatos ortopédicos, generando códigos automáticos por categoría.
+- Gestiona Préstamos a beneficiarios con control de stock disponible y fecha límite.
+- Gestiona Devoluciones registrando el estado físico del aparato y restaurando el stock.
+- Gestiona Beneficiarios y un apartado de Reportes/Morosidad.
+Responde de manera amable, directa, concisa y en español.`;
+
+    // Estructurar el contenido (soporta historial si viene del frontend)
+    let contents = [];
+    if (Array.isArray(historial) && historial.length > 0) {
+        // Excluir el primer mensaje de bienvenida del bot si no tiene respuesta previa del usuario
+        const mensajesFiltrados = historial.filter((m, idx) => !(idx === 0 && m.sender === 'bot'));
+        for (const m of mensajesFiltrados) {
+            contents.push({
+                role: m.sender === 'user' ? 'user' : 'model',
+                parts: [{ text: m.text }]
+            });
+        }
+    }
+    contents.push({
+        role: 'user',
+        parts: [{ text: mensaje.trim() }]
+    });
+
+    // Modelos disponibles con fallback automático si uno tiene alta demanda (503) o no está disponible
+    const modelosCandidatos = [
+        'gemini-3.5-flash-lite',
+        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash',
+        'gemini-3.8-flash'
+    ];
+
+    let respuestaTexto = null;
+    let ultimoError = null;
+
+    for (const modelo of modelosCandidatos) {
+        try {
+            const response = await ai.models.generateContent({
+                model: modelo,
+                contents: contents,
+                config: {
+                    systemInstruction: systemInstruction
+                }
+            });
+
+            if (response && response.text) {
+                respuestaTexto = response.text;
+                break;
+            }
+        } catch (error) {
+            console.warn(`[Gemini] Modelo ${modelo} falló:`, error.message || error);
+            ultimoError = error;
+        }
+    }
+
+    if (respuestaTexto) {
+        return res.json({ respuesta: respuestaTexto });
+    }
+
+    console.error('Error exacto de Gemini en todos los modelos:', ultimoError?.message || ultimoError);
+    return res.status(500).json({ 
+        error: 'Error al procesar la respuesta inteligente con el asistente de IA.' 
+    });
 });
 
 app.listen(PORT, () => {

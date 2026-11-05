@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, Bot, User, Loader2 } from 'lucide-react';
 
 interface Mensaje {
@@ -13,30 +13,39 @@ export const ChatbotAsistente: React.FC = () => {
   const [mensajes, setMensajes] = useState<Mensaje[]>([
     { sender: 'bot', text: '¡Hola! Soy tu asistente inteligente. Pregúntame lo que quieras sobre cómo usar el sistema de ortopedia.' }
   ]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [mensajes, loading, isOpen]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
 
     const textoUsuario = input.trim();
-    setMensajes(prev => [...prev, { sender: 'user', text: textoUsuario }]);
+    const nuevosMensajes: Mensaje[] = [...mensajes, { sender: 'user', text: textoUsuario }];
+    setMensajes(nuevosMensajes);
     setInput('');
     setLoading(true);
 
     try {
-      // Petición a tu backend que se conecta con la IA
+      // Petición a tu backend que se conecta con la IA enviando mensaje e historial
       const response = await fetch('http://localhost:3000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensaje: textoUsuario }),
+        body: JSON.stringify({ 
+          mensaje: textoUsuario,
+          historial: mensajes.map(m => ({ sender: m.sender, text: m.text }))
+        }),
       });
 
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok && data.respuesta) {
         setMensajes(prev => [...prev, { sender: 'bot', text: data.respuesta }]);
       } else {
-        setMensajes(prev => [...prev, { sender: 'bot', text: 'Lo siento, ocurrió un error al procesar tu pregunta.' }]);
+        setMensajes(prev => [...prev, { sender: 'bot', text: data.error || 'Lo siento, ocurrió un error al procesar tu pregunta.' }]);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -86,7 +95,7 @@ export const ChatbotAsistente: React.FC = () => {
                 <div className={`p-3 rounded-2xl text-xs font-medium leading-relaxed shadow-sm ${
                   msg.sender === 'user' 
                     ? 'bg-[#5ba4c7] text-white rounded-tr-none' 
-                    : 'bg-white text-gray-700 border border-gray-100 rounded-tl-none'
+                    : 'bg-white text-gray-700 border border-gray-100 rounded-tl-none whitespace-pre-wrap'
                 }`}>
                   {msg.text}
                 </div>
@@ -97,6 +106,7 @@ export const ChatbotAsistente: React.FC = () => {
                 <Loader2 size={16} className="animate-spin" /> Analizando tu duda...
               </div>
             )}
+            <div ref={chatEndRef} />
           </div>
 
           <form onSubmit={handleSend} className="p-3 bg-white border-t border-gray-100 flex gap-2">
