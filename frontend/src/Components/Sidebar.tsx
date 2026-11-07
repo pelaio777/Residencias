@@ -9,6 +9,7 @@ import {
   LogOut,
   Languages
 } from 'lucide-react';
+import { GoogleTranslate } from './GoogleTranslate';
 
 interface SidebarProps {
   activeView: string;
@@ -30,38 +31,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onLogout, onNavigate }) =
         setUserRol(user.rol || 'Administrador');
       } catch (error) {
         console.error('Error al parsear usuario:', error);
-      }
-    }
-
-    // Inicializar el script de Google Translate de forma dinámica
-    if (!document.getElementById('google-translate-script')) {
-      window.googleTranslateElementInit = () => {
-      if (window.google && window.google.translate) {
-          new window.google.translate.TranslateElement(
-            {
-              pageLanguage: 'es',
-              includedLanguages: 'en,es,fr',
-              // Usar el layout por defecto simplificado evita elementos visuales rotos
-              layout: window.google.translate.TranslateElement.InlineLayout.HORIZONTAL,
-              autoDisplay: false,
-            },
-            'google_translate_element'
-          );
-        }
-      };
-      const script = document.createElement('script');
-      script.id = 'google-translate-script';
-      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-      script.async = true;
-      document.body.appendChild(script);
-    } else if (window.google && window.google.translate) {
-      // Por si el script ya cargó previamente
-      try {
-        if (!document.getElementById('google_translate_element')?.hasChildNodes()) {
-          window.googleTranslateElementInit?.();
-        }
-      } catch (e) {
-        console.error(e);
       }
     }
   }, []);
@@ -155,7 +124,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onLogout, onNavigate }) =
               <Languages size={15} />
             </div>
             <div className="overflow-hidden w-full custom-google-translate">
-              <div id="google_translate_element"></div>
+              <GoogleTranslate />
             </div>
           </div>
 

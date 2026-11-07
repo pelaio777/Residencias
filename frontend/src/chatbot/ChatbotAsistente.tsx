@@ -34,7 +34,7 @@ export const ChatbotAsistente: React.FC = () => {
       const response = await fetch('http://localhost:3000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           mensaje: textoUsuario,
           historial: mensajes.map(m => ({ sender: m.sender, text: m.text }))
         }),
@@ -87,16 +87,14 @@ export const ChatbotAsistente: React.FC = () => {
           <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50">
             {mensajes.map((msg, index) => (
               <div key={index} className={`flex gap-2 max-w-[85%] ${msg.sender === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs ${
-                  msg.sender === 'user' ? 'bg-[#2f8caf] text-white' : 'bg-[#5ba4c7] text-white'
-                }`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs ${msg.sender === 'user' ? 'bg-[#2f8caf] text-white' : 'bg-[#5ba4c7] text-white'
+                  }`}>
                   {msg.sender === 'user' ? <User size={14} /> : <Bot size={14} />}
                 </div>
-                <div className={`p-3 rounded-2xl text-xs font-medium leading-relaxed shadow-sm ${
-                  msg.sender === 'user' 
-                    ? 'bg-[#5ba4c7] text-white rounded-tr-none' 
+                <div className={`p-3 rounded-2xl text-xs font-medium leading-relaxed shadow-sm ${msg.sender === 'user'
+                    ? 'bg-[#5ba4c7] text-white rounded-tr-none'
                     : 'bg-white text-gray-700 border border-gray-100 rounded-tl-none whitespace-pre-wrap'
-                }`}>
+                  }`}>
                   {msg.text}
                 </div>
               </div>

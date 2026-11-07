@@ -254,3 +254,111 @@ textarea {
   --tw-shadow-color: rgba(71, 150, 184, 0.2) !important;
 }
 
+/* ============================================================
+   REGLAS PERSONALIZADAS DE GOOGLE TRANSLATE
+   ============================================================ */
+
+/* 1. Ocultar totalmente la barra superior (banner) de Google Translate en el header */
+.goog-te-banner-frame,
+.goog-te-banner-frame.skiptranslate,
+iframe.goog-te-banner-frame,
+iframe[id^=":"][id$=".container"],
+.goog-te-banner,
+body > .skiptranslate:not(#root) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0px !important;
+  width: 0px !important;
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+
+/* 2. Forzar que el body permanezca arriba sin desplazamiento de 40px */
+html,
+body {
+  top: 0px !important;
+  position: static !important;
+  margin-top: 0px !important;
+}
+
+/* 3. Ocultar tooltips emergentes al pasar el mouse por texto traducido */
+#goog-gt-tt,
+.goog-te-balloon-frame,
+.goog-tooltip,
+.goog-tooltip:hover {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* 4. Ocultar "Google Translate", "Powered by", logotipos y enlaces dentro del selector */
+.goog-te-gadget {
+  font-size: 0px !important;
+  color: transparent !important;
+  line-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+.goog-te-gadget span,
+.goog-te-gadget a,
+.goog-te-gadget img,
+.goog-logo-link {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0px !important;
+  height: 0px !important;
+  font-size: 0px !important;
+}
+
+/* 5. Estilizar únicamente el dropdown (<select>) para que luzca moderno e integrado */
+.goog-te-gadget .goog-te-combo,
+.custom-google-translate select.goog-te-combo,
+.custom-google-translate select {
+  display: block !important;
+  font-size: 12px !important;
+  font-family: inherit !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 10px !important;
+  padding: 5px 8px !important;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  outline: none !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.goog-te-gadget .goog-te-combo:hover,
+.goog-te-gadget .goog-te-combo:focus,
+.custom-google-translate select:hover,
+.custom-google-translate select:focus {
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Opciones del menú desplegable */
+.goog-te-gadget .goog-te-combo option,
+.custom-google-translate select option {
+  background-color: #5ba4c7 !important;
+  color: #ffffff !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 6px !important;
+}
+
