@@ -7,7 +7,8 @@ import {
   Users,
   BarChart3,
   LogOut,
-  Languages
+  Languages,
+  Activity
 } from 'lucide-react';
 import { GoogleTranslate } from './GoogleTranslate';
 
@@ -60,6 +61,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onLogout, onNavigate }) =
       view: 'beneficiarios',
       label: 'Beneficiarios',
       icon: <Users size={19} />
+    },
+    {
+      view: 'fisioterapia',
+      label: 'Fisioterapia',
+      icon: <Activity size={19} />
     },
     {
       view: 'reportes',

@@ -6,6 +6,7 @@ import Devoluciones from './Devoluciones/Devoluciones';
 import Beneficiarios from './Beneficiarios/Beneficiarios';
 import Reportes from './Reportes/Reportes';
 import Usuarios from './Usuarios/Usuarios';
+import Fisioterapia from './Fisioterapia/Fisioterapia';
 import { ChatbotAsistente } from './chatbot/ChatbotAsistente'; // <-- Importación del Chatbot Inteligente
 
 // URL DE REDIRECCIÓN AL SSO EXTERNO
@@ -144,6 +145,8 @@ function App() {
             onClearInitialAction={() => setBeneficiariosInitialOpen(false)}
           />
         );
+      case 'fisioterapia':
+        return <Fisioterapia onLogout={handleLogout} onNavigate={handleNavigate} />;
       case 'reportes':
         return <Reportes onLogout={handleLogout} onNavigate={handleNavigate} />;
       case 'usuarios':
