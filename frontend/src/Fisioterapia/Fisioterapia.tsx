@@ -10,27 +10,22 @@ import {
   CheckCircle2,
   Activity,
   X,
-  ChevronDown
+  ChevronDown,
+  Trash2,
+  Check,
+  RotateCcw
 } from 'lucide-react';
+import {
+  getStoredCitas,
+  saveStoredCitas,
+  EVENT_FISIOTERAPIA_UPDATED,
+  type CitaFisioterapia,
+  type EstadoAsistencia
+} from './fisioterapiaStorage';
 
 interface FisioterapiaProps {
   onLogout: () => void;
   onNavigate: (view: string) => void;
-}
-
-export type EstadoAsistencia = 'Asistió' | 'Faltó' | 'Pendiente';
-
-export interface CitaFisioterapia {
-  id: number;
-  beneficiario: string;
-  identificacion?: string;
-  tratamiento: string;
-  fecha: string; // YYYY-MM-DD
-  hora: string;  // e.g. "07:30 A.M."
-  sesionActual: number;
-  sesionTotal: number;
-  estado: EstadoAsistencia;
-  notas?: string;
 }
 
 interface BeneficiarioRef {
@@ -41,6 +36,12 @@ interface BeneficiarioRef {
 }
 
 export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate }) => {
+  // Lista de citas cargada desde almacenamiento persistente compartido
+  const [citas, setCitas] = useState<CitaFisioterapia[]>(() => getStoredCitas());
+
+  // ID de la cita actualmente en modo de edición (null si se crea una nueva)
+  const [selectedCitaId, setSelectedCitaId] = useState<number | null>(null);
+
   // Búsqueda y filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCardFilter, setActiveCardFilter] = useState<'todos' | 'hoy' | 'asistio' | 'pendiente' | 'activos'>('todos');
@@ -53,7 +54,7 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
   const [beneficiarioSearchInput, setBeneficiarioSearchInput] = useState('');
   const [showBeneficiarioDropdown, setShowBeneficiarioDropdown] = useState(false);
 
-  // Formulario de Nueva Consulta / Avance
+  // Estados del Formulario (para Nueva Consulta o Edición)
   const [formBeneficiario, setFormBeneficiario] = useState('');
   const [formIdentificacion, setFormIdentificacion] = useState('');
   const [formDiagnostico, setFormDiagnostico] = useState('');
@@ -61,112 +62,28 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
   const [formHora, setFormHora] = useState('08:00 A.M.');
   const [formSesionActual, setFormSesionActual] = useState(1);
   const [formSesionTotal, setFormSesionTotal] = useState(10);
+  const [formEstado, setFormEstado] = useState<EstadoAsistencia>('Pendiente');
   const [formNotas, setFormNotas] = useState('');
 
-  // Menú flotante para cambiar estado en la tabla
+  // Menú flotante para cambiar estado directamente en la tabla
   const [openStatusMenuId, setOpenStatusMenuId] = useState<number | null>(null);
 
-  // Citas / Consultas iniciales fieles al diseño
-  const [citas, setCitas] = useState<CitaFisioterapia[]>([
-    {
-      id: 1,
-      beneficiario: 'Ricardo Rocha',
-      identificacion: 'INE-984321',
-      tratamiento: 'Rehabilitación de rodilla',
-      fecha: new Date().toISOString().split('T')[0],
-      hora: '07:30 A.M.',
-      sesionActual: 3,
-      sesionTotal: 10,
-      estado: 'Asistió',
-      notas: 'Mejoría notable en flexión y extensión. Realizó ejercicios con banda elástica.'
-    },
-    {
-      id: 2,
-      beneficiario: 'Ricardo Rocha',
-      identificacion: 'INE-984321',
-      tratamiento: 'Terapia de hombro',
-      fecha: new Date().toISOString().split('T')[0],
-      hora: '07:30 A.M.',
-      sesionActual: 3,
-      sesionTotal: 10,
-      estado: 'Faltó',
-      notas: 'Paciente no se presentó a su sesión programada sin previo aviso.'
-    },
-    {
-      id: 3,
-      beneficiario: 'Carlos Villalobos',
-      identificacion: 'INE-452189',
-      tratamiento: 'Terapia de hombro',
-      fecha: new Date().toISOString().split('T')[0],
-      hora: '07:30 A.M.',
-      sesionActual: 3,
-      sesionTotal: 10,
-      estado: 'Pendiente',
-      notas: 'Cita en espera de turno en área de mecanoterapia.'
-    },
-    {
-      id: 4,
-      beneficiario: 'Carlos Villalobos',
-      identificacion: 'INE-452189',
-      tratamiento: 'Terapia de hombro',
-      fecha: new Date().toISOString().split('T')[0],
-      hora: '07:30 A.M.',
-      sesionActual: 3,
-      sesionTotal: 10,
-      estado: 'Asistió',
-      notas: 'Sesión enfocada en manguito rotador y crioterapia analgésica.'
-    },
-    {
-      id: 5,
-      beneficiario: 'Carlos Villalobos',
-      identificacion: 'INE-452189',
-      tratamiento: 'Terapia de hombro',
-      fecha: new Date().toISOString().split('T')[0],
-      hora: '07:30 A.M.',
-      sesionActual: 3,
-      sesionTotal: 10,
-      estado: 'Asistió',
-      notas: 'Excelente respuesta al estiramiento activo asistido.'
-    },
-    {
-      id: 6,
-      beneficiario: 'Carlos Villalobos',
-      identificacion: 'INE-452189',
-      tratamiento: 'Terapia de hombro',
-      fecha: new Date().toISOString().split('T')[0],
-      hora: '07:30 A.M.',
-      sesionActual: 3,
-      sesionTotal: 10,
-      estado: 'Asistió',
-      notas: 'Continuación del programa de fortalecimiento muscular progresivo.'
-    },
-    {
-      id: 7,
-      beneficiario: 'Lucía Méndez',
-      identificacion: 'INE-112233',
-      tratamiento: 'Fortalecimiento de tobillo',
-      fecha: new Date().toISOString().split('T')[0],
-      hora: '09:00 A.M.',
-      sesionActual: 4,
-      sesionTotal: 8,
-      estado: 'Asistió',
-      notas: 'Reeducación de la marcha en barras paralelas sin apoyo auxiliar.'
-    },
-    {
-      id: 8,
-      beneficiario: 'Mario Delgado',
-      identificacion: 'INE-778899',
-      tratamiento: 'Tracción cervical y calor local',
-      fecha: new Date().toISOString().split('T')[0],
-      hora: '10:30 A.M.',
-      sesionActual: 2,
-      sesionTotal: 10,
-      estado: 'Pendiente',
-      notas: 'Disminución de contractura paravertebral reportada.'
-    }
-  ]);
+  // Sincronización reactiva con almacenamiento compartido (localStorage y eventos)
+  useEffect(() => {
+    const handleStorageUpdate = () => {
+      setCitas(getStoredCitas());
+    };
 
-  // Obtener lista de beneficiarios registrados en el sistema
+    window.addEventListener(EVENT_FISIOTERAPIA_UPDATED, handleStorageUpdate);
+    window.addEventListener('storage', handleStorageUpdate);
+
+    return () => {
+      window.removeEventListener(EVENT_FISIOTERAPIA_UPDATED, handleStorageUpdate);
+      window.removeEventListener('storage', handleStorageUpdate);
+    };
+  }, []);
+
+  // Obtener lista de beneficiarios registrados en la base de datos
   useEffect(() => {
     const fetchBeneficiarios = async () => {
       try {
@@ -182,7 +99,7 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
     fetchBeneficiarios();
   }, []);
 
-  // Mostrar mensaje temporal
+  // Notificación temporal
   const triggerNotification = (msg: string) => {
     setNotification(msg);
     setTimeout(() => {
@@ -202,10 +119,10 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
   // Cálculos de métricas para las 4 tarjetas superiores
   const hoyStr = new Date().toISOString().split('T')[0];
   const metricas = useMemo(() => {
-    const citasHoy = citas.filter(c => c.fecha === hoyStr || true); // Para la demo mostramos las 8 activas
+    const citasHoy = citas.filter(c => c.fecha === hoyStr || true);
     const confirmadas = citasHoy.filter(c => c.estado === 'Asistió').length;
     const pendientes = citasHoy.filter(c => c.estado === 'Pendiente').length;
-    const tratamientosActivos = citas.length + 6; // Representa el total de expedientes activos del módulo (14)
+    const tratamientosActivos = citas.length + 6;
 
     return {
       citasHoyCount: citasHoy.length,
@@ -218,7 +135,6 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
   // Filtrado de la tabla según buscador y tarjeta seleccionada
   const citasFiltradas = useMemo(() => {
     return citas.filter(cita => {
-      // 1. Filtro por buscador (nombre de paciente o diagnóstico)
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
         const coincideNombre = cita.beneficiario.toLowerCase().includes(term);
@@ -229,7 +145,6 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
         }
       }
 
-      // 2. Filtro por tarjeta activa
       if (activeCardFilter === 'asistio') {
         return cita.estado === 'Asistió';
       }
@@ -247,14 +162,69 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
     });
   }, [citas, searchTerm, activeCardFilter, hoyStr]);
 
-  // Manejar cambio de estado de asistencia rápido
-  const handleCambiarEstado = (id: number, nuevoEstado: EstadoAsistencia) => {
-    setCitas(prev => prev.map(c => c.id === id ? { ...c, estado: nuevoEstado } : c));
-    setOpenStatusMenuId(null);
-    triggerNotification(`Estado actualizado a "${nuevoEstado}" correctamente`);
+  // ==============================================================
+  // ACCIÓN: SELECCIONAR UNA CONSULTA PARA EDITARLA
+  // ==============================================================
+  const handleSelectCita = (cita: CitaFisioterapia) => {
+    setSelectedCitaId(cita.id);
+    setFormBeneficiario(cita.beneficiario);
+    setFormIdentificacion(cita.identificacion || '');
+    setBeneficiarioSearchInput(cita.beneficiario);
+    setFormDiagnostico(cita.tratamiento);
+    setFormFecha(cita.fecha);
+    setFormHora(cita.hora);
+    setFormSesionActual(cita.sesionActual);
+    setFormSesionTotal(cita.sesionTotal);
+    setFormEstado(cita.estado);
+    setFormNotas(cita.notas || '');
+
+    // Desplazamiento fluido en pantallas móviles/tabletas
+    const formEl = document.getElementById('formulario-consulta-fisioterapia');
+    if (formEl && window.innerWidth < 1024) {
+      formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
-  // Guardar nueva consulta desde el formulario lateral
+  // ==============================================================
+  // ACCIÓN: CANCELAR EDICIÓN Y LIMPIAR FORMULARIO
+  // ==============================================================
+  const handleCancelarEdicion = () => {
+    setSelectedCitaId(null);
+    setFormBeneficiario('');
+    setFormIdentificacion('');
+    setBeneficiarioSearchInput('');
+    setFormDiagnostico('');
+    setFormFecha(new Date().toISOString().split('T')[0]);
+    setFormHora('08:00 A.M.');
+    setFormSesionActual(1);
+    setFormSesionTotal(10);
+    setFormEstado('Pendiente');
+    setFormNotas('');
+  };
+
+  // ==============================================================
+  // ACCIÓN: ELIMINAR CONSULTA SELECCIONADA
+  // ==============================================================
+  const handleEliminarConsulta = () => {
+    if (!selectedCitaId) return;
+
+    const citaAEliminar = citas.find(c => c.id === selectedCitaId);
+    const nombre = citaAEliminar?.beneficiario || 'esta consulta';
+
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar la consulta de "${nombre}"?`)) {
+      return;
+    }
+
+    const nuevasCitas = citas.filter(c => c.id !== selectedCitaId);
+    setCitas(nuevasCitas);
+    saveStoredCitas(nuevasCitas);
+    handleCancelarEdicion();
+    triggerNotification(`Consulta de "${nombre}" eliminada correctamente.`);
+  };
+
+  // ==============================================================
+  // ACCIÓN: GUARDAR (CREAR O ACTUALIZAR) CONSULTA
+  // ==============================================================
   const handleGuardarConsulta = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -268,30 +238,71 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
       return;
     }
 
-    const nuevaCita: CitaFisioterapia = {
-      id: Date.now(),
-      beneficiario: pacienteNombre,
-      identificacion: formIdentificacion || 'REG-FT',
-      tratamiento: formDiagnostico.trim(),
-      fecha: formFecha || hoyStr,
-      hora: formHora,
-      sesionActual: Number(formSesionActual) || 1,
-      sesionTotal: Number(formSesionTotal) || 10,
-      estado: 'Pendiente',
-      notas: formNotas.trim()
-    };
+    // Asociar con id_beneficiario si existe en los beneficiarios registrados
+    const beneficiarioEncontrado = beneficiariosDisponibles.find(
+      b => b.nombre_completo.toLowerCase() === pacienteNombre.toLowerCase() ||
+           (b.identificacion && formIdentificacion && b.identificacion.toLowerCase() === formIdentificacion.toLowerCase())
+    );
 
-    setCitas(prev => [nuevaCita, ...prev]);
+    if (selectedCitaId) {
+      // MODO EDICIÓN: Actualizar consulta existente
+      const citasActualizadas = citas.map(cita => {
+        if (cita.id === selectedCitaId) {
+          return {
+            ...cita,
+            beneficiario: pacienteNombre,
+            identificacion: formIdentificacion || cita.identificacion || 'REG-FT',
+            id_beneficiario: beneficiarioEncontrado ? beneficiarioEncontrado.id_beneficiario : cita.id_beneficiario,
+            tratamiento: formDiagnostico.trim(),
+            fecha: formFecha || hoyStr,
+            hora: formHora,
+            sesionActual: Number(formSesionActual) || 1,
+            sesionTotal: Number(formSesionTotal) || 10,
+            estado: formEstado,
+            notas: formNotas.trim()
+          };
+        }
+        return cita;
+      });
 
-    // Limpiar formulario
-    setFormBeneficiario('');
-    setFormIdentificacion('');
-    setBeneficiarioSearchInput('');
-    setFormDiagnostico('');
-    setFormNotas('');
-    setFormSesionActual(prev => (prev < 10 ? prev + 1 : 1));
+      setCitas(citasActualizadas);
+      saveStoredCitas(citasActualizadas);
+      handleCancelarEdicion();
+      triggerNotification(`¡Consulta de "${pacienteNombre}" actualizada exitosamente!`);
+    } else {
+      // MODO NUEVO: Registrar nueva consulta
+      const nuevaCita: CitaFisioterapia = {
+        id: Date.now(),
+        id_beneficiario: beneficiarioEncontrado?.id_beneficiario,
+        beneficiario: pacienteNombre,
+        identificacion: formIdentificacion || 'REG-FT',
+        tratamiento: formDiagnostico.trim(),
+        fecha: formFecha || hoyStr,
+        hora: formHora,
+        sesionActual: Number(formSesionActual) || 1,
+        sesionTotal: Number(formSesionTotal) || 10,
+        estado: formEstado,
+        notas: formNotas.trim()
+      };
 
-    triggerNotification(`¡Consulta de ${pacienteNombre} registrada exitosamente!`);
+      const nuevasCitas = [nuevaCita, ...citas];
+      setCitas(nuevasCitas);
+      saveStoredCitas(nuevasCitas);
+      handleCancelarEdicion();
+      triggerNotification(`¡Consulta de "${pacienteNombre}" registrada exitosamente!`);
+    }
+  };
+
+  // Cambio de estado rápido en el badge de la tabla
+  const handleCambiarEstado = (id: number, nuevoEstado: EstadoAsistencia) => {
+    const actualizadas = citas.map(c => c.id === id ? { ...c, estado: nuevoEstado } : c);
+    setCitas(actualizadas);
+    saveStoredCitas(actualizadas);
+    setOpenStatusMenuId(null);
+    if (selectedCitaId === id) {
+      setFormEstado(nuevoEstado);
+    }
+    triggerNotification(`Estado actualizado a "${nuevoEstado}" correctamente`);
   };
 
   // Exportar a CSV
@@ -322,8 +333,9 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
     triggerNotification('Reporte descargado en formato CSV');
   };
 
-  // Enfocar el formulario al dar click en "+ Nueva Cita"
-  const handleScrollToForm = () => {
+  // Enfocar formulario para nueva cita
+  const handleNuevaCitaBoton = () => {
+    handleCancelarEdicion();
     const input = document.getElementById('input-beneficiario-form');
     if (input) {
       input.focus();
@@ -386,7 +398,7 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
             <div className="flex items-center gap-3">
               {/* Botón + Nueva Cita */}
               <button
-                onClick={handleScrollToForm}
+                onClick={handleNuevaCitaBoton}
                 className="bg-white hover:bg-slate-50 text-[#5ba4c7] hover:text-[#4796b8] border border-[#5ba4c7]/40 px-5 py-2.5 rounded-2xl font-black text-sm flex items-center gap-2 shadow-sm transition-all active:scale-[0.98]"
               >
                 <Plus size={18} strokeWidth={3} />
@@ -530,11 +542,16 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
             {/* ============================================== */}
             <div className="lg:col-span-7 bg-[#ebf7f5]/70 border border-emerald-100 rounded-[32px] p-6 sm:p-8 shadow-sm">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
-                  Consultas del Día
-                </h3>
+                <div>
+                  <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                    Consultas del Día
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-bold mt-0.5">
+                    💡 Haz clic en cualquier consulta para cargar sus datos y editarla.
+                  </p>
+                </div>
                 <span className="text-xs font-bold text-slate-500 bg-white/80 px-3 py-1 rounded-full border border-emerald-100">
-                  {citasFiltradas.length} consultas registradas
+                  {citasFiltradas.length} consultas
                 </span>
               </div>
 
@@ -560,15 +577,31 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
                     ) : (
                       citasFiltradas.map((cita) => {
                         const isMenuOpen = openStatusMenuId === cita.id;
+                        const isSelected = selectedCitaId === cita.id;
 
                         return (
                           <tr 
                             key={cita.id} 
-                            className="hover:bg-white/60 transition-colors group relative"
+                            onClick={() => handleSelectCita(cita)}
+                            className={`transition-all cursor-pointer group relative ${
+                              isSelected
+                                ? 'bg-[#d6f0f5] border-l-4 border-l-[#5ba4c7] shadow-sm font-semibold'
+                                : 'hover:bg-white/70'
+                            }`}
+                            title="Haz clic para editar esta consulta"
                           >
                             {/* Beneficiario */}
-                            <td className="py-4 pr-3 font-bold text-slate-900 whitespace-nowrap">
-                              {cita.beneficiario}
+                            <td className="py-4 pr-3 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-bold ${isSelected ? 'text-[#1e6c86]' : 'text-slate-900'}`}>
+                                  {cita.beneficiario}
+                                </span>
+                                {isSelected && (
+                                  <span className="bg-[#5ba4c7] text-white text-[9px] font-black px-1.5 py-0.5 rounded-md">
+                                    Editando
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* Tratamiento / Diagnóstico */}
@@ -590,7 +623,10 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
                             <td className="py-4 pl-3 text-center whitespace-nowrap relative">
                               <button
                                 type="button"
-                                onClick={() => setOpenStatusMenuId(isMenuOpen ? null : cita.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenStatusMenuId(isMenuOpen ? null : cita.id);
+                                }}
                                 className={`inline-flex items-center justify-center gap-1.5 px-5 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 ${
                                   cita.estado === 'Asistió'
                                     ? 'bg-[#3da562] text-white hover:bg-[#349255]'
@@ -609,9 +645,15 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
                                 <>
                                   <div 
                                     className="fixed inset-0 z-30" 
-                                    onClick={() => setOpenStatusMenuId(null)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenStatusMenuId(null);
+                                    }}
                                   />
-                                  <div className="absolute right-2 top-12 z-40 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 min-w-[140px] space-y-1 text-left">
+                                  <div 
+                                    className="absolute right-2 top-12 z-40 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 min-w-[140px] space-y-1 text-left"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
                                     <button
                                       type="button"
                                       onClick={() => handleCambiarEstado(cita.id, 'Asistió')}
@@ -650,12 +692,39 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
             </div>
 
             {/* ============================================== */}
-            {/* COLUMNA DERECHA: REGISTRAR NUEVA CONSULTA / AVANCE */}
+            {/* COLUMNA DERECHA: REGISTRAR / EDITAR CONSULTA */}
             {/* ============================================== */}
-            <div className="lg:col-span-5 bg-white border border-slate-200/70 rounded-[32px] p-6 sm:p-8 shadow-sm">
-              <h3 className="text-lg font-extrabold text-slate-900 mb-6 tracking-tight">
-                Registrar Nueva Consulta / Avance
-              </h3>
+            <div 
+              id="formulario-consulta-fisioterapia"
+              className={`lg:col-span-5 bg-white rounded-[32px] p-6 sm:p-8 shadow-sm transition-all border ${
+                selectedCitaId 
+                  ? 'border-2 border-[#5ba4c7] shadow-xl shadow-[#5ba4c7]/10' 
+                  : 'border-slate-200/70'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                    {selectedCitaId ? 'Editar Consulta / Avance' : 'Registrar Nueva Consulta / Avance'}
+                  </h3>
+                  {selectedCitaId && (
+                    <p className="text-[11px] text-slate-500 font-bold mt-0.5">
+                      Modificando datos de la consulta seleccionada
+                    </p>
+                  )}
+                </div>
+
+                {selectedCitaId && (
+                  <button
+                    type="button"
+                    onClick={handleCancelarEdicion}
+                    className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                    title="Cancelar edición"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
 
               <form onSubmit={handleGuardarConsulta} className="space-y-4">
                 
@@ -771,8 +840,8 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
                   </div>
                 </div>
 
-                {/* Fila de Sesión (Avance) */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* Fila de Sesión y Estado de Asistencia */}
+                <div className="grid grid-cols-3 gap-2.5">
                   <div>
                     <label className="block text-xs font-bold text-slate-800 mb-1.5">
                       Sesión Actual
@@ -783,12 +852,12 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
                       max={formSesionTotal}
                       value={formSesionActual}
                       onChange={(e) => setFormSesionActual(Number(e.target.value))}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#5ba4c7]/30 focus:border-[#5ba4c7] transition-all"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#5ba4c7]/30 focus:border-[#5ba4c7] transition-all"
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                      Total de Sesiones
+                      Total Sesiones
                     </label>
                     <input
                       type="number"
@@ -796,8 +865,22 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
                       max={50}
                       value={formSesionTotal}
                       onChange={(e) => setFormSesionTotal(Number(e.target.value))}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#5ba4c7]/30 focus:border-[#5ba4c7] transition-all"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#5ba4c7]/30 focus:border-[#5ba4c7] transition-all"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                      Asistencia
+                    </label>
+                    <select
+                      value={formEstado}
+                      onChange={(e) => setFormEstado(e.target.value as EstadoAsistencia)}
+                      className="w-full px-2.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#5ba4c7]/30 focus:border-[#5ba4c7] transition-all cursor-pointer"
+                    >
+                      <option value="Pendiente">Pendiente</option>
+                      <option value="Asistió">Asistió</option>
+                      <option value="Faltó">Faltó</option>
+                    </select>
                   </div>
                 </div>
 
@@ -815,13 +898,52 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
                   ></textarea>
                 </div>
 
-                {/* Botón Guardar Consulta */}
-                <button
-                  type="submit"
-                  className="w-full bg-[#5ba4c7] hover:bg-[#4a8ba9] text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-[#5ba4c7]/25 transition-all active:scale-[0.98] mt-2"
-                >
-                  Guardar Consulta
-                </button>
+                {/* BOTONES DE ACCIÓN: SEGÚN MODO NUEVO O EDICIÓN */}
+                {selectedCitaId ? (
+                  /* Modo Edición: Botones de Guardar, Cancelar y Eliminar */
+                  <div className="pt-2 space-y-2">
+                    <div className="flex gap-2">
+                      {/* Botón Guardar Cambios */}
+                      <button
+                        type="submit"
+                        className="flex-1 bg-[#5ba4c7] hover:bg-[#4a8ba9] text-white font-extrabold text-xs sm:text-sm py-3 px-4 rounded-2xl shadow-md shadow-[#5ba4c7]/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        <Check size={16} strokeWidth={2.5} />
+                        <span>Guardar</span>
+                      </button>
+
+                      {/* Botón Cancelar */}
+                      <button
+                        type="button"
+                        onClick={handleCancelarEdicion}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm py-3 px-4 rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                      >
+                        <RotateCcw size={15} />
+                        <span>Cancelar</span>
+                      </button>
+
+                      {/* Botón Eliminar */}
+                      <button
+                        type="button"
+                        onClick={handleEliminarConsulta}
+                        className="bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs sm:text-sm py-3 px-4 rounded-2xl shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+                        title="Eliminar esta consulta de forma permanente"
+                      >
+                        <Trash2 size={16} />
+                        <span>Eliminar</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Modo Nuevo: Botón único de Guardar Consulta */
+                  <button
+                    type="submit"
+                    className="w-full bg-[#5ba4c7] hover:bg-[#4a8ba9] text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-[#5ba4c7]/25 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+                  >
+                    <Plus size={18} strokeWidth={3} />
+                    <span>Guardar Consulta</span>
+                  </button>
+                )}
               </form>
             </div>
 

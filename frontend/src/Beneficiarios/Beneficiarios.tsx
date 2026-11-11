@@ -12,8 +12,15 @@ import {
   Download,
   Upload,
   FileText,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Activity,
+  ArrowLeftRight
 } from 'lucide-react';
+import {
+  getStoredCitas,
+  EVENT_FISIOTERAPIA_UPDATED,
+  type CitaFisioterapia
+} from '../Fisioterapia/fisioterapiaStorage';
 
 interface BeneficiariosProps {
   onLogout: () => void;
@@ -56,6 +63,8 @@ const Beneficiarios: React.FC<BeneficiariosProps> = ({
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<Beneficiario | null>(null);
   const [beneficiariosData, setBeneficiariosData] = useState<Beneficiario[]>([]);
   const [prestamosData, setPrestamosData] = useState<any[]>([]);
+  const [fisioterapiaData, setFisioterapiaData] = useState<CitaFisioterapia[]>(() => getStoredCitas());
+  const [historialTab, setHistorialTab] = useState<'prestamos' | 'fisioterapia'>('prestamos');
 
   // Form states
   const [nombreCompleto, setNombreCompleto] = useState('');
@@ -87,10 +96,22 @@ const Beneficiarios: React.FC<BeneficiariosProps> = ({
     }
   };
 
- useEffect(() => {
-  fetchBeneficiarios();
-  fetchPrestamos();
-}, []);
+  useEffect(() => {
+    fetchBeneficiarios();
+    fetchPrestamos();
+
+    const handleFisioUpdate = () => {
+      setFisioterapiaData(getStoredCitas());
+    };
+
+    window.addEventListener(EVENT_FISIOTERAPIA_UPDATED, handleFisioUpdate);
+    window.addEventListener('storage', handleFisioUpdate);
+
+    return () => {
+      window.removeEventListener(EVENT_FISIOTERAPIA_UPDATED, handleFisioUpdate);
+      window.removeEventListener('storage', handleFisioUpdate);
+    };
+  }, []);
 
   const handleOpenNewModal = () => {
     setEditingId(null);
@@ -764,7 +785,7 @@ const getIdentificacionTipo = (beneficiario: Beneficiario) => {
           </div>
 
           {/* Columna derecha */}
-          <div className="space-y-6 min-h-0 overflow-hidden">
+          <div className="space-y-6 min-h-0 overflow-y-auto pr-2">
             
             {/* Información de registro */}
             <div className="bg-white border border-[#9bd8ea]/70 rounded-[30px] p-6 shadow-md shadow-[#5ba4c7]/10">
@@ -782,88 +803,249 @@ const getIdentificacionTipo = (beneficiario: Beneficiario) => {
               </div>
             </div>
 
-            {/* Historial de préstamos */}
-            <div className="bg-white border border-[#9bd8ea]/70 rounded-[30px] p-6 shadow-md shadow-[#5ba4c7]/10">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h5 className="text-xl font-black text-slate-900">
-                    Historial de Préstamos
-                  </h5>
-                  <p className="text-xs text-slate-500 font-bold mt-1">
-                    Se muestran hasta 3 registros visibles; el resto queda en desplazamiento interno.
-                  </p>
+            {/* Pestañas para alternar entre Préstamos y Fisioterapia */}
+            <div className="flex items-center gap-2 bg-white/80 p-1.5 rounded-2xl border border-[#9bd8ea]/60">
+              <button
+                type="button"
+                onClick={() => setHistorialTab('prestamos')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-black text-xs transition-all ${
+                  historialTab === 'prestamos'
+                    ? 'bg-[#5ba4c7] text-white shadow-md shadow-[#5ba4c7]/20'
+                    : 'text-slate-600 hover:bg-[#effcff]'
+                }`}
+              >
+                <ArrowLeftRight size={15} />
+                <span>Historial de Préstamos</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  historialTab === 'prestamos' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {prestamosData.filter(p => p.id_beneficiario === selectedBeneficiary.id_beneficiario).length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setHistorialTab('fisioterapia')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-black text-xs transition-all ${
+                  historialTab === 'fisioterapia'
+                    ? 'bg-[#5ba4c7] text-white shadow-md shadow-[#5ba4c7]/20'
+                    : 'text-slate-600 hover:bg-[#effcff]'
+                }`}
+              >
+                <Activity size={15} />
+                <span>Historial Fisioterapéutico</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  historialTab === 'fisioterapia' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {fisioterapiaData.filter(c => 
+                    (c.id_beneficiario && c.id_beneficiario === selectedBeneficiary.id_beneficiario) ||
+                    (c.identificacion && selectedBeneficiary.identificacion && c.identificacion.trim().toLowerCase() === selectedBeneficiary.identificacion.trim().toLowerCase()) ||
+                    (c.beneficiario && selectedBeneficiary.nombre_completo && c.beneficiario.trim().toLowerCase() === selectedBeneficiary.nombre_completo.trim().toLowerCase())
+                  ).length}
+                </span>
+              </button>
+            </div>
+
+            {/* VISTA 1: Historial de préstamos */}
+            {historialTab === 'prestamos' && (
+              <div className="bg-white border border-[#9bd8ea]/70 rounded-[30px] p-6 shadow-md shadow-[#5ba4c7]/10 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h5 className="text-xl font-black text-slate-900">
+                      Historial de Préstamos
+                    </h5>
+                    <p className="text-xs text-slate-500 font-bold mt-1">
+                      Aparatos ortopédicos solicitados y devueltos por el beneficiario.
+                    </p>
+                  </div>
+
+                  <span className="px-3 py-1.5 rounded-full bg-[#5ba4c7]/10 text-[#5ba4c7] text-xs font-black">
+                    {
+                      prestamosData.filter(
+                        p => p.id_beneficiario === selectedBeneficiary.id_beneficiario
+                      ).length
+                    } registros
+                  </span>
                 </div>
 
-                <span className="px-3 py-1.5 rounded-full bg-[#5ba4c7]/10 text-[#5ba4c7] text-xs font-black">
-                  {
-                    prestamosData.filter(
+                <div className="max-h-[340px] overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-[#9bd8ea] scrollbar-track-transparent">
+                  {(() => {
+                    const historial = prestamosData.filter(
                       p => p.id_beneficiario === selectedBeneficiary.id_beneficiario
-                    ).length
-                  } registros
-                </span>
-              </div>
-
-              <div className="max-h-[315px] overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-[#9bd8ea] scrollbar-track-transparent">
-                {(() => {
-                  const historial = prestamosData.filter(
-                    p => p.id_beneficiario === selectedBeneficiary.id_beneficiario
-                  );
-
-                  if (historial.length === 0) {
-                    return (
-                      <div className="bg-[#f1fbfe] border border-[#9bd8ea]/60 rounded-2xl p-8 text-center">
-                        <p className="text-sm text-slate-500 font-bold">
-                          No tiene préstamos registrados.
-                        </p>
-                      </div>
                     );
-                  }
 
-                  return historial.map((prestamo, index) => (
-                    <div
-                      key={index}
-                      className="bg-[#f1fbfe] border border-[#9bd8ea]/60 rounded-2xl p-5 hover:border-[#5ba4c7] hover:bg-white transition-all"
-                    >
-                      <div className="flex items-center justify-between gap-4 mb-3">
-                        <span className="font-black text-slate-900 text-base">
-                          {prestamo.nombre_articulo}
-                        </span>
-
-                        <span
-                          className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            prestamo.estado_prestamo === 'Activo'
-                              ? 'bg-[#94d6c6]/30 text-[#21a78a]'
-                              : 'bg-[#9bd8ea]/50 text-[#0f6f8b]'
-                          }`}
-                        >
-                          {prestamo.estado_prestamo}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="bg-white/80 rounded-xl px-3 py-2 border border-white">
-                          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            Préstamo
-                          </p>
-                          <p className="text-xs font-bold text-slate-700 mt-0.5">
-                            {new Date(prestamo.fecha_prestamo).toLocaleDateString('es-MX')}
+                    if (historial.length === 0) {
+                      return (
+                        <div className="bg-[#f1fbfe] border border-[#9bd8ea]/60 rounded-2xl p-8 text-center">
+                          <p className="text-sm text-slate-500 font-bold">
+                            No tiene préstamos registrados.
                           </p>
                         </div>
+                      );
+                    }
 
-                        <div className="bg-white/80 rounded-xl px-3 py-2 border border-white">
-                          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            Devolución
-                          </p>
-                          <p className="text-xs font-bold text-slate-700 mt-0.5">
-                            {new Date(prestamo.fecha_limite_devolucion).toLocaleDateString('es-MX')}
-                          </p>
+                    return historial.map((prestamo, index) => (
+                      <div
+                        key={index}
+                        className="bg-[#f1fbfe] border border-[#9bd8ea]/60 rounded-2xl p-5 hover:border-[#5ba4c7] hover:bg-white transition-all"
+                      >
+                        <div className="flex items-center justify-between gap-4 mb-3">
+                          <span className="font-black text-slate-900 text-base">
+                            {prestamo.nombre_articulo}
+                          </span>
+
+                          <span
+                            className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              prestamo.estado_prestamo === 'Activo'
+                                ? 'bg-[#94d6c6]/30 text-[#21a78a]'
+                                : 'bg-[#9bd8ea]/50 text-[#0f6f8b]'
+                            }`}
+                          >
+                            {prestamo.estado_prestamo}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="bg-white/80 rounded-xl px-3 py-2 border border-white">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                              Préstamo
+                            </p>
+                            <p className="text-xs font-bold text-slate-700 mt-0.5">
+                              {new Date(prestamo.fecha_prestamo).toLocaleDateString('es-MX')}
+                            </p>
+                          </div>
+
+                          <div className="bg-white/80 rounded-xl px-3 py-2 border border-white">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                              Devolución
+                            </p>
+                            <p className="text-xs font-bold text-slate-700 mt-0.5">
+                              {new Date(prestamo.fecha_limite_devolucion).toLocaleDateString('es-MX')}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ));
-                })()}
+                    ));
+                  })()}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* VISTA 2: Historial Fisioterapéutico */}
+            {historialTab === 'fisioterapia' && (
+              <div className="bg-white border border-[#9bd8ea]/70 rounded-[30px] p-6 shadow-md shadow-[#5ba4c7]/10 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h5 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                      <Activity size={20} className="text-[#5ba4c7]" />
+                      Historial Fisioterapéutico
+                    </h5>
+                    <p className="text-xs text-slate-500 font-bold mt-1">
+                      Consultas, diagnósticos y evolución clínica de terapia física.
+                    </p>
+                  </div>
+
+                  {(() => {
+                    const totalSesiones = fisioterapiaData.filter(c => 
+                      (c.id_beneficiario && c.id_beneficiario === selectedBeneficiary.id_beneficiario) ||
+                      (c.identificacion && selectedBeneficiary.identificacion && c.identificacion.trim().toLowerCase() === selectedBeneficiary.identificacion.trim().toLowerCase()) ||
+                      (c.beneficiario && selectedBeneficiary.nombre_completo && c.beneficiario.trim().toLowerCase() === selectedBeneficiary.nombre_completo.trim().toLowerCase())
+                    ).length;
+
+                    return (
+                      <span className="px-3 py-1.5 rounded-full bg-[#5ba4c7]/10 text-[#5ba4c7] text-xs font-black">
+                        {totalSesiones} consultas
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                <div className="max-h-[340px] overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-[#9bd8ea] scrollbar-track-transparent">
+                  {(() => {
+                    const historialFisio = fisioterapiaData.filter(c => 
+                      (c.id_beneficiario && c.id_beneficiario === selectedBeneficiary.id_beneficiario) ||
+                      (c.identificacion && selectedBeneficiary.identificacion && c.identificacion.trim().toLowerCase() === selectedBeneficiary.identificacion.trim().toLowerCase()) ||
+                      (c.beneficiario && selectedBeneficiary.nombre_completo && c.beneficiario.trim().toLowerCase() === selectedBeneficiary.nombre_completo.trim().toLowerCase())
+                    );
+
+                    if (historialFisio.length === 0) {
+                      return (
+                        <div className="bg-[#f1fbfe] border border-[#9bd8ea]/60 rounded-2xl p-8 text-center space-y-3">
+                          <p className="text-sm text-slate-500 font-bold">
+                            Este paciente no tiene consultas de fisioterapia registradas.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedBeneficiary(null);
+                              onNavigate('fisioterapia');
+                            }}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#5ba4c7] hover:bg-[#4a8ba9] text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                          >
+                            <Plus size={15} />
+                            <span>Crear consulta en Fisioterapia</span>
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return historialFisio.map((cita) => (
+                      <div
+                        key={cita.id}
+                        className="bg-[#f1fbfe] border border-[#9bd8ea]/60 rounded-2xl p-5 hover:border-[#5ba4c7] hover:bg-white transition-all space-y-3"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="font-black text-slate-900 text-base">
+                            {cita.tratamiento}
+                          </span>
+
+                          <span
+                            className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                              cita.estado === 'Asistió'
+                                ? 'bg-[#3da562]/20 text-[#236b3f] border border-[#3da562]/30'
+                                : cita.estado === 'Faltó'
+                                ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                                : 'bg-[#ffda99]/60 text-[#7c2d12] border border-[#ffda99]'
+                            }`}
+                          >
+                            {cita.estado}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="bg-white/80 rounded-xl px-3 py-2 border border-white">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                              Fecha y Hora
+                            </p>
+                            <p className="text-xs font-bold text-slate-700 mt-0.5">
+                              {cita.fecha} • {cita.hora}
+                            </p>
+                          </div>
+
+                          <div className="bg-white/80 rounded-xl px-3 py-2 border border-white">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                              Avance del Tratamiento
+                            </p>
+                            <p className="text-xs font-bold text-slate-700 mt-0.5">
+                              Sesión {cita.sesionActual} de {cita.sesionTotal}
+                            </p>
+                          </div>
+                        </div>
+
+                        {cita.notas && (
+                          <div className="bg-white/90 rounded-xl p-3 border border-[#9bd8ea]/40 text-xs text-slate-700 font-medium leading-relaxed">
+                            <span className="font-bold text-slate-800 block text-[10px] uppercase text-[#5ba4c7] tracking-wider mb-1">
+                              Notas de Evolución
+                            </span>
+                            {cita.notas}
+                          </div>
+                        )}
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
