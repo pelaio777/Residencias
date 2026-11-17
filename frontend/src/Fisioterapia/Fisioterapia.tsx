@@ -6,11 +6,14 @@ import {
   Search,
   Plus,
   Calendar,
+  CalendarDays,
   Clock,
   CheckCircle2,
   Activity,
   X,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Trash2,
   Check,
   RotateCcw,
@@ -47,7 +50,164 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
 
   // Búsqueda y filtros
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeCardFilter, setActiveCardFilter] = useState<'todos' | 'hoy' | 'asistio' | 'pendiente' | 'activos'>('todos');
+  const [activeCardFilter, setActiveCardFilter] = useState<'todos' | 'dia' | 'asistio' | 'pendiente' | 'activos'>('todos');
+
+  // Agenda y selector de fechas
+  const getTodayDateStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const hoyStr = useMemo(() => getTodayDateStr(), []);
+  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayDateStr());
+  const [vistaModo, setVistaModo] = useState<'dia' | 'todas'>('dia');
+
+  // Helper para parsear fechas YYYY-MM-DD sin desfases por zona horaria UTC
+  const parseDateSafely = (dateStr: string): Date => {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const [y, m, d] = parts.map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date();
+  };
+
+  const formatDateSafely = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const cambiarDia = (offset: number) => {
+    const d = parseDateSafely(selectedDate);
+    d.setDate(d.getDate() + offset);
+    setSelectedDate(formatDateSafely(d));
+    setVistaModo('dia');
+  };
+
+  const irAHoy = () => {
+    setSelectedDate(hoyStr);
+    setVistaModo('dia');
+  };
+
+  const formatFechaCompleta = (dateStr: string) => {
+    const d = parseDateSafely(dateStr);
+    const str = d.toLocaleDateString('es-MX', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  const formatFechaCorta = (dateStr: string) => {
+    const d = parseDateSafely(dateStr);
+    return d.toLocaleDateString('es-MX', {
+      day: 'numeric',
+      month: 'short'
+    });
+  };
+
+  // Estados para el Modal de Calendario
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+  const [calendarViewDate, setCalendarViewDate] = useState<Date>(() => {
+    const parts = (selectedDate || getTodayDateStr()).split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, 1);
+  });
+
+  const handleOpenCalendarModal = () => {
+    const parts = selectedDate.split('-').map(Number);
+    setCalendarViewDate(new Date(parts[0], parts[1] - 1, 1));
+    setIsCalendarModalOpen(true);
+  };
+
+  const handlePrevMonth = () => {
+    setCalendarViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCalendarViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
+  const handleGoToCurrentMonth = () => {
+    const d = new Date();
+    setCalendarViewDate(new Date(d.getFullYear(), d.getMonth(), 1));
+  };
+
+  const handleSelectDateFromCalendar = (dateStr: string) => {
+    setSelectedDate(dateStr);
+    setVistaModo('dia');
+    setIsCalendarModalOpen(false);
+  };
+
+  const monthYearTitle = useMemo(() => {
+    const str = calendarViewDate.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }, [calendarViewDate]);
+
+  // Cuadrícula de 35 o 42 días para el mes actual en el calendario modal
+  const calendarGridDays = useMemo(() => {
+    const year = calendarViewDate.getFullYear();
+    const month = calendarViewDate.getMonth();
+
+    const firstDay = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // En estándar de México/hispano, la semana inicia en Lunes: Lun=0, Mar=1, ..., Dom=6
+    const firstDayOfWeek = (firstDay.getDay() + 6) % 7;
+
+    const prevMonthDaysCount = new Date(year, month, 0).getDate();
+    const cells: { dateStr: string; dayNumber: number; isCurrentMonth: boolean }[] = [];
+
+    // Días del mes previo
+    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+      const d = prevMonthDaysCount - i;
+      const prevDate = new Date(year, month - 1, d);
+      cells.push({
+        dateStr: formatDateSafely(prevDate),
+        dayNumber: d,
+        isCurrentMonth: false
+      });
+    }
+
+    // Días del mes actual
+    for (let d = 1; d <= daysInMonth; d++) {
+      const curDate = new Date(year, month, d);
+      cells.push({
+        dateStr: formatDateSafely(curDate),
+        dayNumber: d,
+        isCurrentMonth: true
+      });
+    }
+
+    // Días del próximo mes para completar la cuadrícula (hasta 35 o 42 celdas)
+    const targetTotal = cells.length > 35 ? 42 : 35;
+    const remaining = targetTotal - cells.length;
+    for (let d = 1; d <= remaining; d++) {
+      const nextDate = new Date(year, month + 1, d);
+      cells.push({
+        dateStr: formatDateSafely(nextDate),
+        dayNumber: d,
+        isCurrentMonth: false
+      });
+    }
+
+    return cells;
+  }, [calendarViewDate]);
+
+  // Mapa de conteo de citas por fecha para mostrar insignias en la agenda
+  const conteoCitasPorFecha = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const c of citas) {
+      map[c.fecha] = (map[c.fecha] || 0) + 1;
+    }
+    return map;
+  }, [citas]);
 
   // Notificación flotante de éxito
   const [notification, setNotification] = useState<string | null>(null);
@@ -61,7 +221,7 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
   const [formBeneficiario, setFormBeneficiario] = useState('');
   const [formIdentificacion, setFormIdentificacion] = useState('');
   const [formDiagnostico, setFormDiagnostico] = useState('');
-  const [formFecha, setFormFecha] = useState(() => new Date().toISOString().split('T')[0]);
+  const [formFecha, setFormFecha] = useState(() => getTodayDateStr());
   const [formHora, setFormHora] = useState('08:00 A.M.');
   const [formSesionActual, setFormSesionActual] = useState(1);
   const [formSesionTotal, setFormSesionTotal] = useState(10);
@@ -78,12 +238,10 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
   const printReportRef = useRef<HTMLDivElement>(null);
   const printCitaRef = useRef<HTMLDivElement>(null);
 
-  const hoyStr = new Date().toISOString().split('T')[0];
-
-  // Generador de PDF del Reporte General
+  // Generador de PDF del Reporte General (Respeta el filtro de la fecha seleccionada)
   const handlePrintReport = useReactToPrint({
     contentRef: printReportRef,
-    documentTitle: `Reporte_Fisioterapia_Palabras_de_Esperanza_${hoyStr}`,
+    documentTitle: `Reporte_Fisioterapia_${vistaModo === 'dia' ? selectedDate : 'Completo'}_Palabras_de_Esperanza`,
   });
 
   // Generador de PDF de la Ficha/Cita Individual
@@ -144,22 +302,33 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
 
   // Cálculos de métricas para las 4 tarjetas superiores
   const metricas = useMemo(() => {
-    const citasHoy = citas.filter(c => c.fecha === hoyStr || true);
-    const confirmadas = citasHoy.filter(c => c.estado === 'Asistió').length;
-    const pendientes = citasHoy.filter(c => c.estado === 'Pendiente').length;
-    const tratamientosActivos = citas.length + 6;
+    // Si estamos en vista 'dia', las métricas reflejan la fecha seleccionada en la agenda
+    const citasParaCalculo = vistaModo === 'dia'
+      ? citas.filter(c => c.fecha === selectedDate)
+      : citas;
+
+    const confirmadas = citasParaCalculo.filter(c => c.estado === 'Asistió').length;
+    const pendientes = citasParaCalculo.filter(c => c.estado === 'Pendiente').length;
+    // Tratamientos activos: pacientes en rehabilitación continua
+    const tratamientosActivos = citas.filter(c => c.estado !== 'Faltó').length + 4;
 
     return {
-      citasHoyCount: citasHoy.length,
+      citasCount: citasParaCalculo.length,
       confirmadasCount: confirmadas,
       pendientesCount: pendientes,
       tratamientosActivosCount: tratamientosActivos
     };
-  }, [citas, hoyStr]);
+  }, [citas, selectedDate, vistaModo]);
 
-  // Filtrado de la tabla según buscador y tarjeta seleccionada
+  // Filtrado de la tabla según fecha seleccionada, buscador y tarjeta seleccionada
   const citasFiltradas = useMemo(() => {
     return citas.filter(cita => {
+      // 1. Filtrado por agenda diaria
+      if (vistaModo === 'dia' && cita.fecha !== selectedDate) {
+        return false;
+      }
+
+      // 2. Buscador por texto (nombre, tratamiento o ID)
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
         const coincideNombre = cita.beneficiario.toLowerCase().includes(term);
@@ -170,14 +339,15 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
         }
       }
 
+      // 3. Filtros rápidos de las 4 tarjetas
+      if (activeCardFilter === 'dia') {
+        return cita.fecha === selectedDate;
+      }
       if (activeCardFilter === 'asistio') {
         return cita.estado === 'Asistió';
       }
       if (activeCardFilter === 'pendiente') {
         return cita.estado === 'Pendiente';
-      }
-      if (activeCardFilter === 'hoy') {
-        return cita.fecha === hoyStr || true;
       }
       if (activeCardFilter === 'activos') {
         return cita.estado !== 'Faltó';
@@ -185,7 +355,7 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
 
       return true;
     });
-  }, [citas, searchTerm, activeCardFilter, hoyStr]);
+  }, [citas, searchTerm, activeCardFilter, selectedDate, vistaModo]);
 
   // ==============================================================
   // ACCIONES DEL MODAL: ABRIR MODO NUEVO O MODO EDICIÓN
@@ -197,7 +367,7 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
     setFormIdentificacion('');
     setBeneficiarioSearchInput('');
     setFormDiagnostico('');
-    setFormFecha(new Date().toISOString().split('T')[0]);
+    setFormFecha(selectedDate || hoyStr);
     setFormHora('08:00 A.M.');
     setFormSesionActual(1);
     setFormSesionTotal(10);
@@ -462,23 +632,119 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
             </div>
           </div>
 
+          {/* ============================================================== */}
+          {/* BARRA DE AGENDA Y CALENDARIO INTERACTIVO */}
+          {/* ============================================================== */}
+          <div className="bg-white rounded-[28px] border border-slate-200/90 p-4 sm:p-5 shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Botones Día Anterior / Hoy / Día Siguiente */}
+                <div className="flex items-center bg-slate-100/80 p-1 rounded-2xl border border-slate-200/60">
+                  <button
+                    type="button"
+                    onClick={() => cambiarDia(-1)}
+                    className="p-2 hover:bg-white text-slate-700 hover:text-[#5ba4c7] rounded-xl transition-all shadow-none hover:shadow-sm"
+                    title="Día anterior"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={irAHoy}
+                    className={`px-3.5 py-1.5 text-xs font-black rounded-xl transition-all ${
+                      selectedDate === hoyStr && vistaModo === 'dia'
+                        ? 'bg-[#5ba4c7] text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-white'
+                    }`}
+                  >
+                    Hoy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cambiarDia(1)}
+                    className="p-2 hover:bg-white text-slate-700 hover:text-[#5ba4c7] rounded-xl transition-all shadow-none hover:shadow-sm"
+                    title="Día siguiente"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+
+                {/* Botón Selector de Fecha: Abre el Calendario como Modal */}
+                <button
+                  type="button"
+                  onClick={handleOpenCalendarModal}
+                  className="flex items-center gap-2.5 bg-gradient-to-r from-slate-50 to-white hover:from-white hover:to-slate-50 border border-slate-200 hover:border-[#5ba4c7]/70 px-4 py-2 rounded-2xl cursor-pointer shadow-sm transition-all group"
+                  title="Haz clic para abrir el calendario y seleccionar una fecha"
+                >
+                  <CalendarDays size={18} className="text-[#5ba4c7] group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-extrabold text-slate-800">
+                    {formatFechaCompleta(selectedDate)}
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-500 bg-slate-100 group-hover:bg-[#5ba4c7]/15 group-hover:text-[#2f8caf] px-2.5 py-0.5 rounded-lg ml-1 transition-colors">
+                    Cambiar
+                  </span>
+                </button>
+              </div>
+
+              {/* Selector de Modo: Agenda del Día vs Todas las Citas */}
+              <div className="flex items-center bg-slate-100/90 p-1 rounded-2xl border border-slate-200/60 self-start lg:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setVistaModo('dia')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                    vistaModo === 'dia'
+                      ? 'bg-[#5ba4c7] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Calendar size={14} />
+                  <span>Agenda Diaria</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setVistaModo('todas')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                    vistaModo === 'todas'
+                      ? 'bg-[#5ba4c7] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Activity size={14} />
+                  <span>Ver Todas las Fechas</span>
+                  <span className="bg-slate-200/70 text-slate-700 text-[10px] px-1.5 py-0.5 rounded-full ml-1">
+                    {citas.length}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* 4 Tarjetas de Métricas Interactivas (Filtros Rápidos) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Tarjeta 1: Citas para Hoy */}
+            {/* Tarjeta 1: Citas del Día */}
             <button
               type="button"
-              onClick={() => setActiveCardFilter(prev => prev === 'hoy' ? 'todos' : 'hoy')}
+              onClick={() => setActiveCardFilter(prev => prev === 'dia' ? 'todos' : 'dia')}
               className={`p-5 rounded-[24px] text-left transition-all active:scale-[0.98] border ${
-                activeCardFilter === 'hoy'
+                activeCardFilter === 'dia'
                   ? 'ring-4 ring-[#5ba4c7]/30 border-[#5ba4c7]'
                   : 'border-slate-100 hover:border-slate-300'
               } bg-white shadow-sm hover:shadow-md`}
             >
-              <p className="text-xs sm:text-sm font-bold text-slate-800">
-                Citas para Hoy
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs sm:text-sm font-bold text-slate-800">
+                  {vistaModo === 'dia' 
+                    ? (selectedDate === hoyStr ? 'Citas para Hoy' : `Citas del ${formatFechaCorta(selectedDate)}`)
+                    : 'Total de Citas'}
+                </p>
+                <Calendar size={16} className="text-[#5ba4c7]" />
+              </div>
               <p className="text-3xl sm:text-4xl font-black text-slate-900 mt-2">
-                {metricas.citasHoyCount}
+                {metricas.citasCount}
+              </p>
+              <p className="text-[11px] text-slate-400 font-medium mt-1">
+                {vistaModo === 'dia' ? (selectedDate === hoyStr ? 'Agenda actual' : selectedDate) : 'Histórico completo'}
               </p>
             </button>
 
@@ -498,6 +764,9 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
               <p className="text-3xl sm:text-4xl font-black text-slate-900 mt-2">
                 {metricas.confirmadasCount}
               </p>
+              <p className="text-[11px] text-emerald-900/70 font-semibold mt-1">
+                {vistaModo === 'dia' ? 'En la fecha elegida' : 'Total acumulado'}
+              </p>
             </button>
 
             {/* Tarjeta 3: Pendientes */}
@@ -515,6 +784,9 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
               </p>
               <p className="text-3xl sm:text-4xl font-black text-slate-900 mt-2">
                 {metricas.pendientesCount}
+              </p>
+              <p className="text-[11px] text-amber-950/70 font-semibold mt-1">
+                {vistaModo === 'dia' ? 'En la fecha elegida' : 'Por atender'}
               </p>
             </button>
 
@@ -534,6 +806,9 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
               <p className="text-3xl sm:text-4xl font-black text-white mt-2">
                 {metricas.tratamientosActivosCount}
               </p>
+              <p className="text-[11px] text-white/80 font-semibold mt-1">
+                Pacientes en curso
+              </p>
             </button>
           </div>
 
@@ -541,7 +816,9 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
           {activeCardFilter !== 'todos' && (
             <div className="flex items-center justify-between bg-white px-5 py-2.5 rounded-2xl border border-slate-200 text-xs text-slate-600 font-semibold shadow-sm">
               <span>
-                Filtrando lista por: <strong className="text-slate-900 capitalize">{activeCardFilter === 'hoy' ? 'Citas para hoy' : activeCardFilter === 'asistio' ? 'Asistencias Confirmadas' : activeCardFilter === 'pendiente' ? 'Pendientes' : 'Tratamientos Activos'}</strong>
+                Filtrando lista por: <strong className="text-slate-900 capitalize">
+                  {activeCardFilter === 'dia' ? 'Citas de la fecha seleccionada' : activeCardFilter === 'asistio' ? 'Asistencias Confirmadas' : activeCardFilter === 'pendiente' ? 'Pendientes' : 'Tratamientos Activos'}
+                </strong>
               </span>
               <button
                 onClick={() => setActiveCardFilter('todos')}
@@ -560,10 +837,14 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
               <div>
                 <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
                   <Activity size={22} className="text-[#5ba4c7]" />
-                  Consultas del Día
+                  {vistaModo === 'dia'
+                    ? (selectedDate === hoyStr ? 'Consultas del Día (Hoy)' : `Consultas del Día: ${formatFechaCorta(selectedDate)}`)
+                    : 'Todas las Consultas Registradas'}
                 </h3>
                 <p className="text-xs text-slate-500 font-bold mt-1">
-                  💡 Haz clic en cualquier fila para abrir el modal, editar sus datos o exportar su ficha en PDF.
+                  {vistaModo === 'dia'
+                    ? `📅 ${formatFechaCompleta(selectedDate)} • Haz clic en cualquier fila para editar datos o exportar ficha PDF.`
+                    : '📋 Mostrando todas las citas registradas independientemente de la fecha. Haz clic en una fila para editarla.'}
                 </p>
               </div>
 
@@ -598,7 +879,23 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
                   {citasFiltradas.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-12 text-center text-slate-500 font-medium">
-                        No se encontraron consultas con los filtros seleccionados.
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Calendar size={32} className="text-slate-300" />
+                          <p className="font-bold text-slate-700">
+                            {vistaModo === 'dia' 
+                              ? `No hay consultas programadas para el ${formatFechaCompleta(selectedDate)}.`
+                              : 'No se encontraron consultas con los filtros seleccionados.'}
+                          </p>
+                          {vistaModo === 'dia' && (
+                            <button
+                              type="button"
+                              onClick={handleAbrirNuevaCitaModal}
+                              className="mt-2 text-xs font-bold text-[#5ba4c7] hover:underline flex items-center gap-1"
+                            >
+                              <Plus size={14} /> Registrar consulta para esta fecha
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -629,9 +926,16 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
                             {cita.tratamiento}
                           </td>
 
-                          {/* Hora */}
+                          {/* Hora y Fecha (si aplica) */}
                           <td className="py-4 px-4 text-slate-700 font-bold whitespace-nowrap">
-                            {cita.hora}
+                            <div className="flex flex-col">
+                              <span>{cita.hora}</span>
+                              {vistaModo === 'todas' && (
+                                <span className="text-[10px] text-slate-400 font-medium">
+                                  {cita.fecha}
+                                </span>
+                              )}
+                            </div>
                           </td>
 
                           {/* Sesión */}
@@ -1024,6 +1328,161 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
       )}
 
       {/* ============================================================== */}
+      {/* MODAL DE CALENDARIO PARA SELECCIÓN DE FECHA */}
+      {/* ============================================================== */}
+      {isCalendarModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Fondo oscuro desenfocado */}
+          <div 
+            className="fixed inset-0 bg-slate-900/45 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsCalendarModalOpen(false)}
+          />
+
+          {/* Tarjeta del Calendario */}
+          <div className="relative bg-white rounded-[32px] shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 z-10 animate-in fade-in zoom-in duration-200">
+            {/* Encabezado del modal */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#5ba4c7]/15 text-[#5ba4c7] flex items-center justify-center">
+                  <CalendarDays size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                    Seleccionar Fecha
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium">
+                    Agenda de consultas de fisioterapia
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsCalendarModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 p-2 rounded-xl hover:bg-slate-100 transition-colors"
+                title="Cerrar calendario"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Selector de Mes con Flechas */}
+            <div className="flex items-center justify-between my-4 px-1">
+              <button
+                type="button"
+                onClick={handlePrevMonth}
+                className="p-2 rounded-xl text-slate-600 hover:text-[#5ba4c7] hover:bg-slate-100 transition-colors"
+                title="Mes anterior"
+              >
+                <ChevronLeft size={20} />
+              </button>
+
+              <div className="text-center">
+                <p className="text-base font-black text-slate-800">
+                  {monthYearTitle}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGoToCurrentMonth}
+                  className="text-[11px] font-bold text-[#5ba4c7] hover:underline"
+                >
+                  Ir al mes actual
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleNextMonth}
+                className="p-2 rounded-xl text-slate-600 hover:text-[#5ba4c7] hover:bg-slate-100 transition-colors"
+                title="Mes siguiente"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+
+            {/* Días de la semana (Cabecera Lun a Dom) */}
+            <div className="grid grid-cols-7 gap-1 text-center mb-2">
+              {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
+                <span key={d} className="text-[11px] font-black uppercase text-slate-400 py-1">
+                  {d}
+                </span>
+              ))}
+            </div>
+
+            {/* Cuadrícula de Días */}
+            <div className="grid grid-cols-7 gap-1.5 text-center">
+              {calendarGridDays.map((cell) => {
+                const esHoy = cell.dateStr === hoyStr;
+                const estaSeleccionado = cell.dateStr === selectedDate;
+                const numCitas = conteoCitasPorFecha[cell.dateStr] || 0;
+
+                return (
+                  <button
+                    key={cell.dateStr}
+                    type="button"
+                    onClick={() => handleSelectDateFromCalendar(cell.dateStr)}
+                    className={`relative h-12 rounded-2xl flex flex-col items-center justify-center transition-all ${
+                      estaSeleccionado
+                        ? 'bg-[#5ba4c7] text-white font-black shadow-md shadow-[#5ba4c7]/30 scale-105 z-10'
+                        : esHoy
+                        ? 'bg-emerald-50 text-emerald-800 font-black border border-emerald-300 hover:bg-emerald-100'
+                        : cell.isCurrentMonth
+                        ? 'text-slate-800 font-bold hover:bg-slate-100'
+                        : 'text-slate-300 font-medium hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-xs sm:text-sm">{cell.dayNumber}</span>
+                    
+                    {/* Indicador de citas para este día */}
+                    {numCitas > 0 && (
+                      <div className="flex items-center gap-0.5 mt-0.5">
+                        <span 
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            estaSeleccionado 
+                              ? 'bg-white' 
+                              : 'bg-[#5ba4c7]'
+                          }`}
+                        />
+                        {numCitas > 1 && (
+                          <span className={`text-[8px] leading-none font-black ${
+                            estaSeleccionado ? 'text-white' : 'text-[#2f8caf]'
+                          }`}>
+                            {numCitas}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Pie del modal */}
+            <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  irAHoy();
+                  setIsCalendarModalOpen(false);
+                }}
+                className="text-xs font-black text-[#5ba4c7] hover:bg-[#5ba4c7]/10 px-3.5 py-2 rounded-xl transition-colors"
+              >
+                Hoy ({formatFechaCorta(hoyStr)})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsCalendarModalOpen(false)}
+                className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
       {/* PLANTILLAS OFF-SCREEN PARA EXPORTAR EN PDF (REACT-TO-PRINT) */}
       {/* ============================================================== */}
 
@@ -1056,7 +1515,7 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
 
               <div>
                 <h1 className="text-2xl font-black text-slate-900 leading-tight">
-                  Reporte General de Fisioterapia
+                  {vistaModo === 'dia' ? 'Reporte Diario de Fisioterapia' : 'Reporte General de Fisioterapia'}
                 </h1>
                 <p className="text-sm font-bold text-[#5ba4c7] mt-1">
                   Centro Comunitario Palabras de Esperanza
@@ -1068,9 +1527,9 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
             </div>
 
             <div className="text-right text-xs text-slate-500">
-              <p className="font-black text-slate-800">Fecha de emisión</p>
-              <p>{new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-              <p className="font-black text-slate-800 mt-2">Citas registradas</p>
+              <p className="font-black text-slate-800">Fecha del Reporte</p>
+              <p>{vistaModo === 'dia' ? formatFechaCompleta(selectedDate) : 'Histórico General'}</p>
+              <p className="font-black text-slate-800 mt-2">Citas en este Reporte</p>
               <p>{citasFiltradas.length} sesiones</p>
             </div>
           </div>
@@ -1078,13 +1537,15 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
           {/* Resumen ejecutivo de métricas */}
           <section className="mb-7">
             <h2 className="text-sm font-black uppercase text-slate-600 tracking-wider mb-3">
-              Resumen Clínico de Actividades
+              Resumen Clínico de Actividades ({vistaModo === 'dia' ? formatFechaCorta(selectedDate) : 'General'})
             </h2>
 
             <div className="grid grid-cols-4 gap-3">
               <div className="bg-[#f1fbfe] border border-[#9bd8ea] rounded-xl p-3.5 text-center">
-                <p className="text-[10px] font-black uppercase text-slate-500">Citas Hoy</p>
-                <p className="text-2xl font-black text-slate-900 mt-1">{metricas.citasHoyCount}</p>
+                <p className="text-[10px] font-black uppercase text-slate-500">
+                  {vistaModo === 'dia' ? 'Citas del Día' : 'Total Citas'}
+                </p>
+                <p className="text-2xl font-black text-slate-900 mt-1">{metricas.citasCount}</p>
               </div>
               <div className="bg-[#edf8f6] border border-[#94d6c6] rounded-xl p-3.5 text-center">
                 <p className="text-[10px] font-black uppercase text-emerald-700">Asistencias</p>
@@ -1104,7 +1565,9 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
           {/* Tabla detallada de citas */}
           <section className="mb-8">
             <h2 className="text-sm font-black uppercase text-slate-600 tracking-wider mb-3">
-              Listado de Consultas del Día
+              {vistaModo === 'dia' 
+                ? `Listado de Consultas: ${formatFechaCompleta(selectedDate)}` 
+                : 'Listado de Todas las Consultas Registradas'}
             </h2>
 
             <table className="w-full text-left border-collapse text-xs">
@@ -1112,7 +1575,7 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
                 <tr className="bg-[#f8fafc] border-y border-slate-200 text-slate-800 font-bold">
                   <th className="py-2.5 px-3">Beneficiario</th>
                   <th className="py-2.5 px-3">Diagnóstico / Tratamiento</th>
-                  <th className="py-2.5 px-3">Hora</th>
+                  <th className="py-2.5 px-3">Hora / Fecha</th>
                   <th className="py-2.5 px-3">Sesión</th>
                   <th className="py-2.5 px-3">Estado</th>
                   <th className="py-2.5 px-3">Notas de Evolución</th>
@@ -1130,7 +1593,12 @@ export const Fisioterapia: React.FC<FisioterapiaProps> = ({ onLogout, onNavigate
                       )}
                     </td>
                     <td className="py-2.5 px-3 text-slate-700">{c.tratamiento}</td>
-                    <td className="py-2.5 px-3 text-slate-700">{c.hora}</td>
+                    <td className="py-2.5 px-3 text-slate-700">
+                      <span>{c.hora}</span>
+                      {vistaModo === 'todas' && (
+                        <span className="block text-[10px] text-slate-400">{c.fecha}</span>
+                      )}
+                    </td>
                     <td className="py-2.5 px-3 text-slate-700">{c.sesionActual} de {c.sesionTotal}</td>
                     <td className="py-2.5 px-3 font-bold">
                       <span className={`px-2 py-0.5 rounded text-[10px] ${
